@@ -49,7 +49,7 @@ func (agent *Agent) ChatCompletionWithTools(
 			Type: "function",
 			Function: openai.FunctionDefinitionParam{
 				Name:        tool.Name(),
-				Description: openai.Opt(tool.Description()),
+				Description: openai.String(tool.Description()),
 				Parameters:  convertParameters(tool.Parameters()),
 			},
 		})
@@ -65,7 +65,6 @@ func (agent *Agent) ChatCompletionWithTools(
 	go func() {
 		defer close(responseChan)
 		err := func() error {
-			var toolCalled bool
 			for range agent.maxIterations {
 				// Start streaming completion
 				response, err := agent.client.Chat.Completions.New(ctx, params)
@@ -73,9 +72,15 @@ func (agent *Agent) ChatCompletionWithTools(
 					return err
 				}
 
-				// Add the AI message to our conversation
-				params.Messages = append(params.Messages, response.Choices[0].Message.ToParam())
+				// Check if there are tool calls
+				hasToolCalls := len(response.Choices[0].Message.ToolCalls) > 0
 
+				// Add the AI message to our conversation only if it has content or tool calls
+				if response.Choices[0].Message.Content != "" || hasToolCalls {
+					params.Messages = append(params.Messages, response.Choices[0].Message.ToParam())
+				}
+
+				// Send content to response channel if present
 				if response.Choices[0].Message.Content != "" {
 					responseChan <- Response{
 						Content: response.Choices[0].Message.Content,
@@ -83,40 +88,40 @@ func (agent *Agent) ChatCompletionWithTools(
 				}
 
 				// Handle any tool calls
-				for _, toolCall := range response.Choices[0].Message.ToolCalls {
-					toolCalled = true
-
-					// TODO: add a lookup map
-					var tool Tool
-					for _, t := range agent.tools {
-						if t.Name() == toolCall.Function.Name {
-							tool = t
-							break
+				if hasToolCalls {
+					for _, toolCall := range response.Choices[0].Message.ToolCalls {
+						// TODO: add a lookup map
+						var tool Tool
+						for _, t := range agent.tools {
+							if t.Name() == toolCall.Function.Name {
+								tool = t
+								break
+							}
 						}
-					}
 
-					// Execute the tool using the tool executor
-					var args map[string]any
-					if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
-						return err
-					}
-					toolResult, err := tool.Execute(ctx, args)
-					if err != nil {
-						return err
-					}
-
-					switch v := toolResult.(type) {
-					case string:
-						params.Messages = append(params.Messages, openai.ToolMessage(v, toolCall.ID))
-					case any, map[string]any, []any:
-						data, err := json.Marshal(v)
+						// Execute the tool using the tool executor
+						var args map[string]any
+						if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
+							return err
+						}
+						toolResult, err := tool.Execute(ctx, args)
 						if err != nil {
 							return err
 						}
-						params.Messages = append(params.Messages, openai.ToolMessage(string(data), toolCall.ID))
+
+						switch v := toolResult.(type) {
+						case string:
+							params.Messages = append(params.Messages, openai.ToolMessage(v, toolCall.ID))
+						case any, map[string]any, []any:
+							data, err := json.Marshal(v)
+							if err != nil {
+								return err
+							}
+							params.Messages = append(params.Messages, openai.ToolMessage(string(data), toolCall.ID))
+						}
 					}
-				}
-				if !toolCalled {
+				} else {
+					// No tool calls, exit the loop
 					break
 				}
 			}
@@ -152,6 +157,7 @@ func convertMessages(messages []Message) []openai.ChatCompletionMessageParamUnio
 
 func convertParameters(parameters Parameters) shared.FunctionParameters {
 	return shared.FunctionParameters{
+		"type":       "object",
 		"properties": parameters.Properties,
 		"required":   parameters.Required,
 	}
