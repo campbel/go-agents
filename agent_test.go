@@ -67,7 +67,7 @@ func TestAgent(t *testing.T) {
 
 	testAgent := NewAgent(os.Getenv("ANTHROPIC_API_KEY"), "https://api.anthropic.com/v1/", "claude-sonnet-4-20250514", WithTools([]Tool{weatherTool}))
 
-	responseChan, err := testAgent.ChatCompletionWithTools(context.Background(), []Message{
+	responseChan, err := testAgent.StreamChatCompletion(context.Background(), []Message{
 		UserTextMessage("What is the weather in Tokyo? Use the get_weather tool."),
 	})
 
@@ -264,7 +264,7 @@ func TestAgentWithImage(t *testing.T) {
 
 	testAgent := NewAgent(os.Getenv("ANTHROPIC_API_KEY"), "https://api.anthropic.com/v1/", "claude-sonnet-4-20250514")
 
-	responseChan, err := testAgent.ChatCompletionWithTools(context.Background(), []Message{
+	responseChan, err := testAgent.StreamChatCompletion(context.Background(), []Message{
 		UserImageMessage(Image{
 			Data: imageData,
 			Name: "claude.png",
@@ -317,7 +317,7 @@ func TestAgentWithSystemPromptAndInstructions(t *testing.T) {
 		WithInstructions(instructions),
 	)
 
-	responseChan, err := testAgent.ChatCompletionWithTools(context.Background(), []Message{
+	responseChan, err := testAgent.StreamChatCompletion(context.Background(), []Message{
 		UserTextMessage("Hello, can you tell me what 2+2 equals?"),
 	})
 
@@ -343,6 +343,32 @@ func TestAgentWithSystemPromptAndInstructions(t *testing.T) {
 	assert.Contains(t, allContent, "4", "Response should contain the answer to 2+2")
 }
 
+func TestChatCompletion(t *testing.T) {
+	// Skip if no API key
+	if os.Getenv("ANTHROPIC_API_KEY") == "" {
+		t.Skip("ANTHROPIC_API_KEY not set")
+	}
+
+	testAgent := NewAgent(os.Getenv("ANTHROPIC_API_KEY"), "https://api.anthropic.com/v1/", "claude-sonnet-4-20250514")
+
+	completion, err := testAgent.ChatCompletion(context.Background(), []Message{
+		UserTextMessage("What is 2+2? Please respond with just the number."),
+	})
+
+	assert.NoError(t, err)
+	assert.NotEmpty(t, completion.Messages, "Expected at least one message in completion")
+	assert.NotEmpty(t, completion.Responses, "Expected at least one response in completion")
+
+	// Check that we have usage information
+	assert.Greater(t, completion.Usage.TotalTokens, int64(0), "Expected non-zero total tokens")
+	assert.Greater(t, completion.Usage.PromptTokens, int64(0), "Expected non-zero prompt tokens")
+	assert.Greater(t, completion.Usage.CompletionTokens, int64(0), "Expected non-zero completion tokens")
+
+	// Check that the completion contains the expected answer
+	allContent := strings.Join(completion.Messages, " ")
+	assert.Contains(t, allContent, "4", "Response should contain the answer to 2+2")
+}
+
 func TestNewAgentOptionsPattern(t *testing.T) {
 	// Test simple agent with no options
 	agent1 := NewAgent("test-key", "https://api.example.com", "test-model")
@@ -353,7 +379,7 @@ func TestNewAgentOptionsPattern(t *testing.T) {
 	assert.Equal(t, "", agent1.instructions)
 
 	// Test agent with single option
-	agent2 := NewAgent("test-key", "https://api.example.com", "test-model", 
+	agent2 := NewAgent("test-key", "https://api.example.com", "test-model",
 		WithSystemPrompt("You are helpful"))
 	assert.Equal(t, "You are helpful", agent2.systemPrompt)
 

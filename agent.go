@@ -96,8 +96,38 @@ func NewAgentWithClient(client openai.Client, model string, opts ...AgentOption)
 	return agent
 }
 
-// ChatCompletionWithTools implements the Agent interface with tools support
-func (agent *Agent) ChatCompletionWithTools(
+func (agent *Agent) ChatCompletion(
+	ctx context.Context,
+	messages []Message,
+) (Completion, error) {
+	responseChan, err := agent.StreamChatCompletion(ctx, messages)
+	if err != nil {
+		return Completion{}, err
+	}
+
+	var completion Completion
+
+	for response := range responseChan {
+		completion.Responses = append(completion.Responses, response)
+		if response.IsUsageResponse() {
+			usage := response.Usage()
+			completion.Usage.PromptTokens += usage.PromptTokens
+			completion.Usage.CompletionTokens += usage.CompletionTokens
+			completion.Usage.TotalTokens += usage.TotalTokens
+		}
+		if response.IsContentResponse() {
+			completion.Messages = append(completion.Messages, response.Content())
+		}
+		if response.IsErrorResponse() {
+			return Completion{}, response.Error()
+		}
+	}
+
+	return completion, nil
+}
+
+// StreamChatCompletion implements the Agent interface
+func (agent *Agent) StreamChatCompletion(
 	ctx context.Context,
 	messages []Message,
 ) (<-chan Response, error) {

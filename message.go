@@ -191,3 +191,9 @@ type Usage struct {
 	CompletionTokens int64 `json:"completion_tokens"`
 	TotalTokens      int64 `json:"total_tokens"`
 }
+
+type Completion struct {
+	Usage     Usage
+	Messages  []string
+	Responses []Response
+}
