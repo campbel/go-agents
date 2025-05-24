@@ -1,0 +1,18 @@
+---
+# Bolt Configuration File
+# Created by Dutchie (https://github.com/GetDutchie/bolt)
+# Documentation at https://dutchie.roadie.so/docs/default/component/bolt/
+
+# Tool versions to install, see options with 'bolt tools ls'
+tools: [{ golang: "1.24.3" }]
+# Load environment variables from .env files
+dotenv: [.env]
+# Setup commands to run during 'bolt up'
+up: []
+# Custom commands, run like 'bolt dev'
+cmds:
+  # Start the development server
+  hello-world:
+    desc: "Print 'Hello, World!'"
+    steps:
+      - echo "Hello, World!"
