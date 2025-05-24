@@ -74,11 +74,11 @@ func TestAgent(t *testing.T) {
 
 	var messages []string
 	for response := range responseChan {
-		if response.Error != nil {
-			t.Fatalf("Unexpected error: %v", response.Error)
+		if response.IsErrorResponse() {
+			t.Fatalf("Unexpected error: %v", response.Error())
 		}
-		if response.Content != "" {
-			messages = append(messages, response.Content)
+		if response.IsContentResponse() {
+			messages = append(messages, response.Content())
 		}
 	}
 

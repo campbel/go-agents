@@ -80,6 +80,12 @@ func (agent *Agent) ChatCompletionWithTools(
 					return err
 				}
 
+				responseChan <- NewUsageResponse(Usage{
+					PromptTokens:     response.Usage.PromptTokens,
+					CompletionTokens: response.Usage.CompletionTokens,
+					TotalTokens:      response.Usage.TotalTokens,
+				})
+
 				// Check if there are tool calls
 				hasToolCalls := len(response.Choices[0].Message.ToolCalls) > 0
 
@@ -90,9 +96,7 @@ func (agent *Agent) ChatCompletionWithTools(
 
 				// Send content to response channel if present
 				if response.Choices[0].Message.Content != "" {
-					responseChan <- Response{
-						Content: response.Choices[0].Message.Content,
-					}
+					responseChan <- NewContentResponse(response.Choices[0].Message.Content)
 				}
 
 				// Handle any tool calls
@@ -136,9 +140,7 @@ func (agent *Agent) ChatCompletionWithTools(
 			return nil
 		}()
 		if err != nil {
-			responseChan <- Response{
-				Error: err,
-			}
+			responseChan <- NewErrorResponse(err)
 		}
 	}()
 
