@@ -185,6 +185,23 @@ func convertMessages(messages []Message) []openai.ChatCompletionMessageParamUnio
 						},
 					},
 				})
+			case MessageKindImage:
+				base64Data := base64.StdEncoding.EncodeToString(msg.Image().Data)
+				chatMessages = append(chatMessages, openai.ChatCompletionMessageParamUnion{
+					OfUser: &openai.ChatCompletionUserMessageParam{
+						Content: openai.ChatCompletionUserMessageParamContentUnion{
+							OfArrayOfContentParts: []openai.ChatCompletionContentPartUnionParam{
+								{
+									OfImageURL: &openai.ChatCompletionContentPartImageParam{
+										ImageURL: openai.ChatCompletionContentPartImageImageURLParam{
+											URL: "data:image/png;base64," + base64Data,
+										},
+									},
+								},
+							},
+						},
+					},
+				})
 			}
 		default:
 			chatMessages = append(chatMessages, openai.UserMessage(msg.Text()))

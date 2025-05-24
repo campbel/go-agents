@@ -3,8 +3,9 @@ package agent
 type MessageKind string
 
 const (
-	MessageKindText MessageKind = "text"
-	MessageKindFile MessageKind = "file"
+	MessageKindText  MessageKind = "text"
+	MessageKindFile  MessageKind = "file"
+	MessageKindImage MessageKind = "image"
 )
 
 type Role string
@@ -19,11 +20,17 @@ type Message struct {
 	role Role
 	kind MessageKind
 
-	text string
-	file File
+	text  string
+	file  File
+	image Image
 }
 
 type File struct {
+	Data []byte
+	Name string
+}
+
+type Image struct {
 	Data []byte
 	Name string
 }
@@ -44,6 +51,10 @@ func (m Message) IsFile() bool {
 	return m.kind == MessageKindFile
 }
 
+func (m Message) IsImage() bool {
+	return m.kind == MessageKindImage
+}
+
 func (m Message) Text() string {
 	if m.kind != MessageKindText {
 		return ""
@@ -56,6 +67,13 @@ func (m Message) File() File {
 		return File{}
 	}
 	return m.file
+}
+
+func (m Message) Image() Image {
+	if m.kind != MessageKindImage {
+		return Image{}
+	}
+	return m.image
 }
 
 func UserTextMessage(text string) Message {
@@ -71,6 +89,14 @@ func UserFileMessage(file File) Message {
 		role: RoleUser,
 		kind: MessageKindFile,
 		file: file,
+	}
+}
+
+func UserImageMessage(image Image) Message {
+	return Message{
+		role:  RoleUser,
+		kind:  MessageKindImage,
+		image: image,
 	}
 }
 

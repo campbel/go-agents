@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -249,4 +250,52 @@ func TestMockToolDefaultExecution(t *testing.T) {
 	result, err := tool.Execute(context.Background(), map[string]any{})
 	assert.NoError(t, err)
 	assert.Equal(t, "mock result", result)
+}
+
+func TestAgentWithImage(t *testing.T) {
+	// Skip if no API key
+	if os.Getenv("ANTHROPIC_API_KEY") == "" {
+		t.Skip("ANTHROPIC_API_KEY not set")
+	}
+
+	// Read the test image
+	imageData, err := os.ReadFile("testdata/claude.png")
+	require.NoError(t, err, "Failed to read test image")
+
+	testAgent := NewAgent(os.Getenv("ANTHROPIC_API_KEY"), "https://api.anthropic.com/v1/", "claude-sonnet-4-20250514", []Tool{})
+
+	responseChan, err := testAgent.ChatCompletionWithTools(context.Background(), []Message{
+		UserImageMessage(Image{
+			Data: imageData,
+			Name: "claude.png",
+		}),
+		UserTextMessage("What do you see in this image? Please mention if you see any logos or text."),
+	})
+
+	assert.Nil(t, err)
+
+	var messages []string
+	for response := range responseChan {
+		if response.IsErrorResponse() {
+			t.Fatalf("Unexpected error: %v", response.Error())
+		}
+		if response.IsContentResponse() {
+			messages = append(messages, response.Content())
+		}
+	}
+
+	assert.NotEmpty(t, messages, "Expected at least one non-empty response")
+
+	// Check that the model recognized something in the image
+	allContent := strings.ToLower(strings.Join(messages, " "))
+
+	// Look for common keywords that might appear when describing the Claude logo/image
+	hasImageDescription := strings.Contains(allContent, "logo") ||
+		strings.Contains(allContent, "text") ||
+		strings.Contains(allContent, "image") ||
+		strings.Contains(allContent, "claude") ||
+		strings.Contains(allContent, "anthropic") ||
+		strings.Contains(allContent, "see")
+
+	assert.True(t, hasImageDescription, "Response should contain image description keywords. Got: %s", allContent)
 }
