@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 
 	"github.com/openai/openai-go"
@@ -152,14 +153,35 @@ func convertMessages(messages []Message) []openai.ChatCompletionMessageParamUnio
 	var chatMessages []openai.ChatCompletionMessageParamUnion
 	for _, msg := range messages {
 		switch msg.Role {
-		case "system":
-			chatMessages = append(chatMessages, openai.SystemMessage(msg.Content))
-		case "assistant":
-			chatMessages = append(chatMessages, openai.AssistantMessage(msg.Content))
-		case "user":
-			chatMessages = append(chatMessages, openai.UserMessage(msg.Content))
+		case RoleSystem:
+			chatMessages = append(chatMessages, openai.SystemMessage(msg.Text()))
+		case RoleAssistant:
+			chatMessages = append(chatMessages, openai.AssistantMessage(msg.Text()))
+		case RoleUser:
+			switch msg.Kind {
+			case MessageKindText:
+				chatMessages = append(chatMessages, openai.UserMessage(msg.Text()))
+			case MessageKindFile:
+				base64Data := base64.StdEncoding.EncodeToString(msg.File().Data)
+				chatMessages = append(chatMessages, openai.ChatCompletionMessageParamUnion{
+					OfUser: &openai.ChatCompletionUserMessageParam{
+						Content: openai.ChatCompletionUserMessageParamContentUnion{
+							OfArrayOfContentParts: []openai.ChatCompletionContentPartUnionParam{
+								{
+									OfFile: &openai.ChatCompletionContentPartFileParam{
+										File: openai.ChatCompletionContentPartFileFileParam{
+											FileData: openai.String(base64Data),
+											Filename: openai.String(msg.File().Name),
+										},
+									},
+								},
+							},
+						},
+					},
+				})
+			}
 		default:
-			chatMessages = append(chatMessages, openai.UserMessage(msg.Content))
+			chatMessages = append(chatMessages, openai.UserMessage(msg.Text()))
 		}
 	}
 	return chatMessages

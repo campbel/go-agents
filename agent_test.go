@@ -67,7 +67,7 @@ func TestAgent(t *testing.T) {
 	testAgent := NewAgent(os.Getenv("ANTHROPIC_API_KEY"), "https://api.anthropic.com/v1/", "claude-sonnet-4-20250514", []Tool{weatherTool})
 
 	responseChan, err := testAgent.ChatCompletionWithTools(t.Context(), []Message{
-		UserMessage("What is the weather in Tokyo? Use the get_weather tool."),
+		UserTextMessage("What is the weather in Tokyo? Use the get_weather tool."),
 	})
 
 	assert.Nil(t, err)
@@ -132,18 +132,18 @@ func TestNewAgent(t *testing.T) {
 
 func TestUserMessage(t *testing.T) {
 	content := "Hello, world!"
-	msg := UserMessage(content)
+	msg := UserTextMessage(content)
 
-	assert.Equal(t, string(RoleUser), msg.Role)
-	assert.Equal(t, content, msg.Content)
+	assert.Equal(t, RoleUser, msg.Role)
+	assert.Equal(t, content, msg.Text())
 }
 
 func TestAssistantMessage(t *testing.T) {
 	content := "Hello back!"
-	msg := AssistantMessage(content)
+	msg := AssistantTextMessage(content)
 
-	assert.Equal(t, string(RoleAssistant), msg.Role)
-	assert.Equal(t, content, msg.Content)
+	assert.Equal(t, RoleAssistant, msg.Role)
+	assert.Equal(t, content, msg.Text())
 }
 
 func TestConvertMessages(t *testing.T) {
@@ -160,23 +160,23 @@ func TestConvertMessages(t *testing.T) {
 		{
 			name: "single user message",
 			messages: []Message{
-				{Role: "user", Content: "Hello"},
+				UserTextMessage("Hello"),
 			},
 			expected: 1,
 		},
 		{
 			name: "mixed message types",
 			messages: []Message{
-				{Role: "system", Content: "You are a helpful assistant"},
-				{Role: "user", Content: "Hello"},
-				{Role: "assistant", Content: "Hi there!"},
+				SystemMessage("You are a helpful assistant"),
+				UserTextMessage("Hello"),
+				AssistantTextMessage("Hi there!"),
 			},
 			expected: 3,
 		},
 		{
 			name: "unknown role defaults to user",
 			messages: []Message{
-				{Role: "unknown", Content: "Test"},
+				UserTextMessage("Test"),
 			},
 			expected: 1,
 		},

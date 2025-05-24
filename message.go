@@ -1,28 +1,84 @@
 package agent
 
-type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
+type MessageKind string
+
+const (
+	MessageKindText MessageKind = "text"
+	MessageKindFile MessageKind = "file"
+)
 
 type Role string
 
 const (
 	RoleUser      Role = "user"
 	RoleAssistant Role = "assistant"
+	RoleSystem    Role = "system"
 )
 
-func UserMessage(content string) Message {
+type Message struct {
+	Role Role        `json:"role"`
+	Kind MessageKind `json:"kind"`
+
+	text string
+	file File
+}
+
+type File struct {
+	Data []byte
+	Name string
+}
+
+func (m Message) IsText() bool {
+	return m.Kind == MessageKindText
+}
+
+func (m Message) IsFile() bool {
+	return m.Kind == MessageKindFile
+}
+
+func (m Message) Text() string {
+	if m.Kind != MessageKindText {
+		return ""
+	}
+	return m.text
+}
+
+func (m Message) File() File {
+	if m.Kind != MessageKindFile {
+		return File{}
+	}
+	return m.file
+}
+
+func UserTextMessage(text string) Message {
 	return Message{
-		Role:    string(RoleUser),
-		Content: content,
+		Role: RoleUser,
+		Kind: MessageKindText,
+		text: text,
 	}
 }
 
-func AssistantMessage(content string) Message {
+func UserFileMessage(file File) Message {
 	return Message{
-		Role:    string(RoleAssistant),
-		Content: content,
+		Role: RoleUser,
+		Kind: MessageKindFile,
+		file: file,
+	}
+}
+
+func AssistantTextMessage(content string) Message {
+	return Message{
+		Role: RoleAssistant,
+		Kind: MessageKindText,
+		text: content,
+	}
+}
+
+func SystemMessage(text string) Message {
+	return Message{
+		Role: RoleSystem,
+		Kind: MessageKindText,
+		text: text,
 	}
 }
 
