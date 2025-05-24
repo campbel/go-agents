@@ -66,7 +66,7 @@ func TestAgent(t *testing.T) {
 
 	testAgent := NewAgent(os.Getenv("ANTHROPIC_API_KEY"), "https://api.anthropic.com/v1/", "claude-sonnet-4-20250514", []Tool{weatherTool})
 
-	responseChan, err := testAgent.ChatCompletionWithTools(t.Context(), []Message{
+	responseChan, err := testAgent.ChatCompletionWithTools(context.Background(), []Message{
 		UserTextMessage("What is the weather in Tokyo? Use the get_weather tool."),
 	})
 
@@ -134,7 +134,7 @@ func TestUserMessage(t *testing.T) {
 	content := "Hello, world!"
 	msg := UserTextMessage(content)
 
-	assert.Equal(t, RoleUser, msg.Role)
+	assert.Equal(t, RoleUser, msg.Role())
 	assert.Equal(t, content, msg.Text())
 }
 
@@ -142,7 +142,7 @@ func TestAssistantMessage(t *testing.T) {
 	content := "Hello back!"
 	msg := AssistantTextMessage(content)
 
-	assert.Equal(t, RoleAssistant, msg.Role)
+	assert.Equal(t, RoleAssistant, msg.Role())
 	assert.Equal(t, content, msg.Text())
 }
 

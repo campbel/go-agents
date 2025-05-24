@@ -16,8 +16,8 @@ const (
 )
 
 type Message struct {
-	Role Role        `json:"role"`
-	Kind MessageKind `json:"kind"`
+	role Role
+	kind MessageKind
 
 	text string
 	file File
@@ -28,23 +28,31 @@ type File struct {
 	Name string
 }
 
+func (m Message) Role() Role {
+	return m.role
+}
+
+func (m Message) Kind() MessageKind {
+	return m.kind
+}
+
 func (m Message) IsText() bool {
-	return m.Kind == MessageKindText
+	return m.kind == MessageKindText
 }
 
 func (m Message) IsFile() bool {
-	return m.Kind == MessageKindFile
+	return m.kind == MessageKindFile
 }
 
 func (m Message) Text() string {
-	if m.Kind != MessageKindText {
+	if m.kind != MessageKindText {
 		return ""
 	}
 	return m.text
 }
 
 func (m Message) File() File {
-	if m.Kind != MessageKindFile {
+	if m.kind != MessageKindFile {
 		return File{}
 	}
 	return m.file
@@ -52,32 +60,32 @@ func (m Message) File() File {
 
 func UserTextMessage(text string) Message {
 	return Message{
-		Role: RoleUser,
-		Kind: MessageKindText,
+		role: RoleUser,
+		kind: MessageKindText,
 		text: text,
 	}
 }
 
 func UserFileMessage(file File) Message {
 	return Message{
-		Role: RoleUser,
-		Kind: MessageKindFile,
+		role: RoleUser,
+		kind: MessageKindFile,
 		file: file,
 	}
 }
 
 func AssistantTextMessage(content string) Message {
 	return Message{
-		Role: RoleAssistant,
-		Kind: MessageKindText,
+		role: RoleAssistant,
+		kind: MessageKindText,
 		text: content,
 	}
 }
 
 func SystemMessage(text string) Message {
 	return Message{
-		Role: RoleSystem,
-		Kind: MessageKindText,
+		role: RoleSystem,
+		kind: MessageKindText,
 		text: text,
 	}
 }

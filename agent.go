@@ -125,7 +125,13 @@ func (agent *Agent) ChatCompletionWithTools(
 						switch v := toolResult.(type) {
 						case string:
 							params.Messages = append(params.Messages, openai.ToolMessage(v, toolCall.ID))
-						case any, map[string]any, []any:
+						case map[string]any, []any:
+							data, err := json.Marshal(v)
+							if err != nil {
+								return err
+							}
+							params.Messages = append(params.Messages, openai.ToolMessage(string(data), toolCall.ID))
+						default:
 							data, err := json.Marshal(v)
 							if err != nil {
 								return err
@@ -152,13 +158,13 @@ func (agent *Agent) ChatCompletionWithTools(
 func convertMessages(messages []Message) []openai.ChatCompletionMessageParamUnion {
 	var chatMessages []openai.ChatCompletionMessageParamUnion
 	for _, msg := range messages {
-		switch msg.Role {
+		switch msg.Role() {
 		case RoleSystem:
 			chatMessages = append(chatMessages, openai.SystemMessage(msg.Text()))
 		case RoleAssistant:
 			chatMessages = append(chatMessages, openai.AssistantMessage(msg.Text()))
 		case RoleUser:
-			switch msg.Kind {
+			switch msg.Kind() {
 			case MessageKindText:
 				chatMessages = append(chatMessages, openai.UserMessage(msg.Text()))
 			case MessageKindFile:
