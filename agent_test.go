@@ -65,7 +65,7 @@ func TestAgent(t *testing.T) {
 		},
 	}
 
-	testAgent := NewAgent(os.Getenv("ANTHROPIC_API_KEY"), "https://api.anthropic.com/v1/", "claude-sonnet-4-20250514", []Tool{weatherTool})
+	testAgent := NewAgent(os.Getenv("ANTHROPIC_API_KEY"), "https://api.anthropic.com/v1/", "claude-sonnet-4-20250514", WithTools([]Tool{weatherTool}))
 
 	responseChan, err := testAgent.ChatCompletionWithTools(context.Background(), []Message{
 		UserTextMessage("What is the weather in Tokyo? Use the get_weather tool."),
@@ -122,7 +122,7 @@ func TestNewAgent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			agent := NewAgent(tt.apiKey, tt.baseURL, tt.model, tt.tools)
+			agent := NewAgent(tt.apiKey, tt.baseURL, tt.model, WithTools(tt.tools))
 			require.NotNil(t, agent)
 			assert.Equal(t, tt.model, agent.model)
 			assert.Equal(t, len(tt.tools), len(agent.tools))
@@ -262,7 +262,7 @@ func TestAgentWithImage(t *testing.T) {
 	imageData, err := os.ReadFile("testdata/claude.png")
 	require.NoError(t, err, "Failed to read test image")
 
-	testAgent := NewAgent(os.Getenv("ANTHROPIC_API_KEY"), "https://api.anthropic.com/v1/", "claude-sonnet-4-20250514", []Tool{})
+	testAgent := NewAgent(os.Getenv("ANTHROPIC_API_KEY"), "https://api.anthropic.com/v1/", "claude-sonnet-4-20250514")
 
 	responseChan, err := testAgent.ChatCompletionWithTools(context.Background(), []Message{
 		UserImageMessage(Image{
@@ -298,4 +298,75 @@ func TestAgentWithImage(t *testing.T) {
 		strings.Contains(allContent, "see")
 
 	assert.True(t, hasImageDescription, "Response should contain image description keywords. Got: %s", allContent)
+}
+
+func TestAgentWithSystemPromptAndInstructions(t *testing.T) {
+	// Skip if no API key
+	if os.Getenv("ANTHROPIC_API_KEY") == "" {
+		t.Skip("ANTHROPIC_API_KEY not set")
+	}
+
+	systemPrompt := "You are a helpful AI assistant that always ends responses with 'SYSTEM_TEST_MARKER'."
+	instructions := "Please be very brief in your responses and include the word 'INSTRUCTION_TEST_MARKER' somewhere."
+
+	testAgent := NewAgent(
+		os.Getenv("ANTHROPIC_API_KEY"),
+		"https://api.anthropic.com/v1/",
+		"claude-sonnet-4-20250514",
+		WithSystemPrompt(systemPrompt),
+		WithInstructions(instructions),
+	)
+
+	responseChan, err := testAgent.ChatCompletionWithTools(context.Background(), []Message{
+		UserTextMessage("Hello, can you tell me what 2+2 equals?"),
+	})
+
+	assert.Nil(t, err)
+
+	var messages []string
+	for response := range responseChan {
+		if response.IsErrorResponse() {
+			t.Fatalf("Unexpected error: %v", response.Error())
+		}
+		if response.IsContentResponse() {
+			messages = append(messages, response.Content())
+		}
+	}
+
+	assert.NotEmpty(t, messages, "Expected at least one non-empty response")
+
+	allContent := strings.Join(messages, " ")
+
+	// Check that both the system prompt and instructions influenced the response
+	assert.Contains(t, allContent, "SYSTEM_TEST_MARKER", "Response should contain system prompt marker")
+	assert.Contains(t, allContent, "INSTRUCTION_TEST_MARKER", "Response should contain instruction marker")
+	assert.Contains(t, allContent, "4", "Response should contain the answer to 2+2")
+}
+
+func TestNewAgentOptionsPattern(t *testing.T) {
+	// Test simple agent with no options
+	agent1 := NewAgent("test-key", "https://api.example.com", "test-model")
+	assert.Equal(t, "test-model", agent1.model)
+	assert.Equal(t, []Tool{}, agent1.tools)
+	assert.Equal(t, 100, agent1.maxIterations)
+	assert.Equal(t, "", agent1.systemPrompt)
+	assert.Equal(t, "", agent1.instructions)
+
+	// Test agent with single option
+	agent2 := NewAgent("test-key", "https://api.example.com", "test-model", 
+		WithSystemPrompt("You are helpful"))
+	assert.Equal(t, "You are helpful", agent2.systemPrompt)
+
+	// Test agent with multiple options
+	tools := []Tool{MockTool{name: "test_tool"}}
+	agent3 := NewAgent("test-key", "https://api.example.com", "test-model",
+		WithSystemPrompt("You are helpful"),
+		WithInstructions("Be concise"),
+		WithTools(tools),
+		WithMaxIterations(50),
+	)
+	assert.Equal(t, "You are helpful", agent3.systemPrompt)
+	assert.Equal(t, "Be concise", agent3.instructions)
+	assert.Equal(t, tools, agent3.tools)
+	assert.Equal(t, 50, agent3.maxIterations)
 }

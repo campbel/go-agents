@@ -10,35 +10,90 @@ import (
 	"github.com/openai/openai-go/shared"
 )
 
+// AgentOption is a functional option for configuring an Agent
+type AgentOption func(*Agent)
+
+// WithSystemPrompt sets the system prompt for the agent
+func WithSystemPrompt(prompt string) AgentOption {
+	return func(a *Agent) {
+		a.systemPrompt = prompt
+	}
+}
+
+// WithInstructions sets the instructions for the agent
+func WithInstructions(instructions string) AgentOption {
+	return func(a *Agent) {
+		a.instructions = instructions
+	}
+}
+
+// WithTools sets the tools for the agent
+func WithTools(tools []Tool) AgentOption {
+	return func(a *Agent) {
+		a.tools = tools
+	}
+}
+
+// WithMaxIterations sets the maximum number of iterations for the agent
+func WithMaxIterations(max int) AgentOption {
+	return func(a *Agent) {
+		a.maxIterations = max
+	}
+}
+
 // Agent implements the Agent interface using the OpenAI-compatible API
 type Agent struct {
 	client        openai.Client
 	model         string
 	tools         []Tool
 	maxIterations int
+	systemPrompt  string
+	instructions  string
 }
 
-// NewAgent creates a new Agent
-func NewAgent(apiKey string, baseURL string, model string, tools []Tool) *Agent {
+// NewAgent creates a new Agent with the given API key, base URL, and model
+func NewAgent(apiKey string, baseURL string, model string, opts ...AgentOption) *Agent {
 	client := openai.NewClient(
 		option.WithAPIKey(apiKey),
 		option.WithBaseURL(baseURL),
 	)
-	return &Agent{
+
+	// Create agent with defaults
+	agent := &Agent{
 		client:        client,
 		model:         model,
-		tools:         tools,
+		tools:         []Tool{},
 		maxIterations: 100,
+		systemPrompt:  "",
+		instructions:  "",
 	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(agent)
+	}
+
+	return agent
 }
 
-func NewAgentWithClient(client openai.Client, model string, tools []Tool) *Agent {
-	return &Agent{
+// NewAgentWithClient creates a new Agent with an existing OpenAI client
+func NewAgentWithClient(client openai.Client, model string, opts ...AgentOption) *Agent {
+	// Create agent with defaults
+	agent := &Agent{
 		client:        client,
 		model:         model,
-		tools:         tools,
+		tools:         []Tool{},
 		maxIterations: 100,
+		systemPrompt:  "",
+		instructions:  "",
 	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(agent)
+	}
+
+	return agent
 }
 
 // ChatCompletionWithTools implements the Agent interface with tools support
@@ -48,8 +103,8 @@ func (agent *Agent) ChatCompletionWithTools(
 ) (<-chan Response, error) {
 	responseChan := make(chan Response)
 
-	// Convert the messages to OpenAI format
-	chatMessages := convertMessages(messages)
+	// Convert the messages to OpenAI format and inject system prompt and instructions
+	chatMessages := agent.buildMessages(messages)
 
 	// Initialize tools params
 	var openAITools []openai.ChatCompletionToolParam
@@ -207,6 +262,27 @@ func convertMessages(messages []Message) []openai.ChatCompletionMessageParamUnio
 			chatMessages = append(chatMessages, openai.UserMessage(msg.Text()))
 		}
 	}
+	return chatMessages
+}
+
+// buildMessages converts messages and injects system prompt and instructions
+func (agent *Agent) buildMessages(messages []Message) []openai.ChatCompletionMessageParamUnion {
+	var chatMessages []openai.ChatCompletionMessageParamUnion
+
+	// Add system prompt if provided
+	if agent.systemPrompt != "" {
+		chatMessages = append(chatMessages, openai.SystemMessage(agent.systemPrompt))
+	}
+
+	// Add instructions as first user message if provided
+	if agent.instructions != "" {
+		chatMessages = append(chatMessages, openai.UserMessage(agent.instructions))
+	}
+
+	// Convert and append the provided messages
+	userMessages := convertMessages(messages)
+	chatMessages = append(chatMessages, userMessages...)
+
 	return chatMessages
 }
 
