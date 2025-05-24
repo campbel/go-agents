@@ -31,11 +31,18 @@ func NewAgent(apiKey string, baseURL string, model string, tools []Tool) *Agent 
 	}
 }
 
+func NewAgentWithClient(client openai.Client, model string, tools []Tool) *Agent {
+	return &Agent{
+		client: client,
+		model:  model,
+		tools:  tools,
+	}
+}
+
 // ChatCompletionWithTools implements the Agent interface with tools support
 func (agent *Agent) ChatCompletionWithTools(
 	ctx context.Context,
 	messages []Message,
-	tools []Tool,
 ) (<-chan Response, error) {
 	responseChan := make(chan Response)
 
@@ -44,7 +51,7 @@ func (agent *Agent) ChatCompletionWithTools(
 
 	// Initialize tools params
 	var openAITools []openai.ChatCompletionToolParam
-	for _, tool := range tools {
+	for _, tool := range agent.tools {
 		openAITools = append(openAITools, openai.ChatCompletionToolParam{
 			Type: "function",
 			Function: openai.FunctionDefinitionParam{

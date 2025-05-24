@@ -68,7 +68,7 @@ func TestAgent(t *testing.T) {
 
 	responseChan, err := testAgent.ChatCompletionWithTools(t.Context(), []Message{
 		UserMessage("What is the weather in Tokyo? Use the get_weather tool."),
-	}, []Tool{weatherTool})
+	})
 
 	assert.Nil(t, err)
 
@@ -83,7 +83,7 @@ func TestAgent(t *testing.T) {
 	}
 
 	assert.NotEmpty(t, messages, "Expected at least one non-empty response")
-	
+
 	// Check that the weather tool was used and we got some weather information
 	allContent := ""
 	for _, msg := range messages {
