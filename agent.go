@@ -33,9 +33,10 @@ func NewAgent(apiKey string, baseURL string, model string, tools []Tool) *Agent 
 
 func NewAgentWithClient(client openai.Client, model string, tools []Tool) *Agent {
 	return &Agent{
-		client: client,
-		model:  model,
-		tools:  tools,
+		client:        client,
+		model:         model,
+		tools:         tools,
+		maxIterations: 100,
 	}
 }
 
